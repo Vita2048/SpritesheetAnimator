@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sprite Sheet Animator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+        }
+        .control-panel label {
+            color: #d1d5db; /* text-gray-300 */
+        }
+        .control-panel input[type="number"],
+        .control-panel input[type="file"]::file-selector-button {
+            background-color: #374151; /* bg-gray-700 */
+            border-color: #4b5563; /* border-gray-600 */
+            color: #f3f4f6; /* text-gray-100 */
+        }
+        .control-panel input[type="file"]::file-selector-button:hover {
+            background-color: #4b5563; /* bg-gray-600 */
+        }
+        /* Custom styles for range slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #374151; /* bg-gray-700 */
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6; /* bg-blue-500 */
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #1f2937; /* bg-gray-800 */
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6; /* bg-blue-500 */
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #1f2937; /* bg-gray-800 */
+        }
+        .preview-box {
+            background-color: #1f2937; /* bg-gray-800 */
+            background-image:
+                linear-gradient(45deg, #374151 25%, transparent 25%),
+                linear-gradient(-45deg, #374151 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #374151 75%),
+                linear-gradient(-45deg, transparent 75%, #374151 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        #sprite-sheet-viewer {
+            position: relative;
+            width: 100%;
+            padding-top: 100%; /* Maintain 1:1 aspect ratio */
+            overflow: hidden;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        #grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-size: 0 0; /* Initially hidden */
+        }
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+    </style>
+</head>
+<body class="text-white p-4 sm:p-6 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-blue-400">Interactive Sprite Sheet Animator</h1>
+            <p class="text-gray-400 mt-2">Upload a sprite sheet, define its structure, and see your animation come to life.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Controls -->
+            <div class="lg:col-span-1 bg-gray-800 rounded-2xl p-6 shadow-lg control-panel">
+                <div class="space-y-6">
+                    <!-- Step 1: Upload -->
+                    <div>
+                        <label for="sprite-sheet-upload" class="block text-lg font-semibold mb-2">1. Upload Sprite Sheet</label>
+                        <input id="sprite-sheet-upload" type="file" accept="image/*" class="block w-full text-sm rounded-lg cursor-pointer focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold">
+                    </div>
+
+                    <!-- Step 2: Structure -->
+                    <div>
+                        <label class="block text-lg font-semibold mb-2">2. Define Structure</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="columns-input" class="block text-sm font-medium mb-1">Columns</label>
+                                <input id="columns-input" type="number" min="1" value="8" class="w-full rounded-lg border-2 p-2 text-center">
+                            </div>
+                            <div>
+                                <label for="rows-input" class="block text-sm font-medium mb-1">Rows</label>
+                                <input id="rows-input" type="number" min="1" value="8" class="w-full rounded-lg border-2 p-2 text-center">
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label for="total-frames-input" class="block text-sm font-medium mb-1">Total Frames to Animate</label>
+                            <input id="total-frames-input" type="number" min="1" value="64" class="w-full rounded-lg border-2 p-2 text-center">
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Animate -->
+                    <div>
+                        <label for="fps-slider" class="block text-lg font-semibold mb-2">3. Set Speed</label>
+                        <div class="flex items-center gap-4">
+                            <input id="fps-slider" type="range" min="1" max="60" value="10" class="w-full h-2 rounded-lg cursor-pointer">
+                            <span id="fps-value" class="font-mono bg-gray-900 text-blue-300 rounded-md px-3 py-1 text-sm w-20 text-center">10 FPS</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 4: Preview Size -->
+                    <div>
+                        <label for="zoom-slider" class="block text-lg font-semibold mb-2">4. Preview Size</label>
+                        <div class="flex items-center gap-4">
+                            <input id="zoom-slider" type="range" min="0.1" max="10" value="1" step="0.1" class="w-full h-2 rounded-lg cursor-pointer">
+                            <span id="zoom-value" class="font-mono bg-gray-900 text-blue-300 rounded-md px-3 py-1 text-sm w-20 text-center">1.0x</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Button -->
+                    <div class="pt-4">
+                         <button id="start-stop-button" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500" disabled>
+                            Upload an Image
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Previews -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Sprite Sheet Viewer -->
+                <div class="bg-gray-800 rounded-2xl p-6 shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 text-center">Sprite Sheet Preview</h2>
+                    <div id="sprite-sheet-container" class="preview-box aspect-square rounded-lg flex items-center justify-center">
+                        <div id="sprite-sheet-viewer" class="rounded-lg">
+                            <div id="grid-overlay"></div>
+                        </div>
+                        <p id="upload-prompt" class="text-gray-400">Upload an image to see it here</p>
+                    </div>
+                </div>
+
+                <!-- Animation Preview -->
+                <div class="bg-gray-800 rounded-2xl p-6 shadow-lg">
+                     <h2 class="text-xl font-semibold mb-4 text-center">Animation Preview</h2>
+                     <div class="preview-box aspect-square rounded-lg flex items-center justify-center p-2 overflow-auto">
+                        <canvas id="animation-canvas" class="bg-transparent rounded"></canvas>
+                     </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // DOM Elements
+        const uploadInput = document.getElementById('sprite-sheet-upload');
+        const colsInput = document.getElementById('columns-input');
+        const rowsInput = document.getElementById('rows-input');
+        const totalFramesInput = document.getElementById('total-frames-input');
+        const fpsSlider = document.getElementById('fps-slider');
+        const zoomSlider = document.getElementById('zoom-slider');
+        const startStopButton = document.getElementById('start-stop-button');
+
+        const fpsValueDisplay = document.getElementById('fps-value');
+        const zoomValueDisplay = document.getElementById('zoom-value');
+        
+        const spriteSheetContainer = document.getElementById('sprite-sheet-container');
+        const spriteSheetViewer = document.getElementById('sprite-sheet-viewer');
+        const gridOverlay = document.getElementById('grid-overlay');
+        const uploadPrompt = document.getElementById('upload-prompt');
+
+        const canvas = document.getElementById('animation-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // State variables
+        let spriteImage = null;
+        let isAnimating = false;
+        let animationInterval = null;
+        let currentFrame = 0;
+        let frameWidth = 0;
+        let frameHeight = 0;
+
+        // --- Event Listeners ---
+
+        uploadInput.addEventListener('change', handleImageUpload);
+        colsInput.addEventListener('input', updateGridAndFrames);
+        rowsInput.addEventListener('input', updateGridAndFrames);
+        totalFramesInput.addEventListener('input', handleManualFrameChange);
+        fpsSlider.addEventListener('input', handleFpsChange);
+        zoomSlider.addEventListener('input', handleZoomChange);
+        startStopButton.addEventListener('click', toggleAnimation);
+
+        // --- Functions ---
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                spriteImage = new Image();
+                spriteImage.onload = () => {
+                    // Image is loaded
+                    spriteSheetViewer.style.backgroundImage = `url('${e.target.result}')`;
+                    uploadPrompt.style.display = 'none';
+                    spriteSheetViewer.style.display = 'block';
+                    startStopButton.disabled = false;
+                    startStopButton.textContent = 'Start Animation';
+                    
+                    if (isAnimating) {
+                        stopAnimation();
+                    }
+                    currentFrame = 0;
+
+                    updateGridAndFrames();
+                };
+                spriteImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updateGridAndFrames() {
+            if (!spriteImage) return;
+
+            const cols = parseInt(colsInput.value) || 1;
+            const rows = parseInt(rowsInput.value) || 1;
+
+            totalFramesInput.value = cols * rows;
+
+            frameWidth = spriteImage.width / cols;
+            frameHeight = spriteImage.height / rows;
+
+            drawGrid(cols, rows);
+            updateCanvasAndFrame();
+            
+            // If animation is running, restart it to apply changes
+            if (isAnimating) {
+                stopAnimation();
+                startAnimation();
+            }
+        }
+
+        function drawGrid(cols, rows) {
+            const colWidthPercent = 100 / cols;
+            const rowHeightPercent = 100 / rows;
+
+            gridOverlay.style.backgroundSize = `${colWidthPercent}% ${rowHeightPercent}%`;
+            gridOverlay.style.backgroundImage = `
+                linear-gradient(to right, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px)
+            `;
+        }
+
+        function handleManualFrameChange() {
+             if (isAnimating) {
+                stopAnimation();
+                startAnimation();
+            }
+        }
+
+        function handleFpsChange() {
+            const fps = fpsSlider.value;
+            fpsValueDisplay.textContent = `${fps} FPS`;
+            if (isAnimating) {
+                stopAnimation();
+                startAnimation();
+            }
+        }
+
+        function handleZoomChange() {
+            const zoom = parseFloat(zoomSlider.value);
+            zoomValueDisplay.textContent = `${zoom.toFixed(1)}x`;
+            updateCanvasAndFrame();
+        }
+
+        function updateCanvasAndFrame() {
+            if (!spriteImage) return;
+            const zoom = parseFloat(zoomSlider.value);
+
+            canvas.width = frameWidth * zoom;
+            canvas.height = frameHeight * zoom;
+
+            drawFrame(currentFrame);
+        }
+
+        function toggleAnimation() {
+            if (!spriteImage) return;
+            if (isAnimating) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function startAnimation() {
+            const totalFrames = parseInt(totalFramesInput.value) || 1;
+            if (totalFrames <= 0) return;
+
+            isAnimating = true;
+            startStopButton.textContent = 'Stop Animation';
+            startStopButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            startStopButton.classList.add('bg-red-600', 'hover:bg-red-700');
+
+            const fps = parseInt(fpsSlider.value);
+            const intervalTime = 1000 / fps;
+
+            animationInterval = setInterval(() => {
+                currentFrame = (currentFrame + 1) % totalFrames;
+                drawFrame(currentFrame);
+            }, intervalTime);
+        }
+
+        function stopAnimation() {
+            isAnimating = false;
+            clearInterval(animationInterval);
+            animationInterval = null;
+            startStopButton.textContent = 'Start Animation';
+            startStopButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+            startStopButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        }
+
+        function drawFrame(frameIndex) {
+            if (!spriteImage) return;
+
+            const cols = parseInt(colsInput.value) || 1;
+            const row = Math.floor(frameIndex / cols);
+            const col = frameIndex % cols;
+
+            const sourceX = col * frameWidth;
+            const sourceY = row * frameHeight;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(
+                spriteImage,
+                sourceX,
+                sourceY,
+                frameWidth,
+                frameHeight,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+        }
+        
+        // Initial setup on window resize to make sprite sheet preview responsive
+        // Note: animation canvas is handled by zoom, not viewport size.
+        window.addEventListener('resize', () => {
+            if(spriteImage) {
+                drawGrid(parseInt(colsInput.value), parseInt(rowsInput.value));
+            }
+        });
+    </script>
+</body>
+</html>
+
